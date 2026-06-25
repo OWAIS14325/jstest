@@ -13,10 +13,11 @@ export default function Results({ studentName, questions, answers, screenshots =
 
   const [emailStatus, setEmailStatus] = useState("idle");
 
-  const mcqScore   = mcqAnswers.reduce((acc, ans, i) => acc + (ans === mcq[i].answer ? 1 : 0), 0);
-  const codingScore = codingAnswers.reduce((acc, a) => acc + (a?.passed ? 1 : 0), 0);
-  const totalScore = mcqScore + codingScore;
-  const maxScore   = mcq.length + coding.length;
+  const CODING_WEIGHT = 5;
+  const mcqScore    = mcqAnswers.reduce((acc, ans, i) => acc + (ans === mcq[i].answer ? 1 : 0), 0);
+  const codingScore = codingAnswers.reduce((acc, a) => acc + (a?.passed ? CODING_WEIGHT : 0), 0);
+  const totalScore  = mcqScore + codingScore;
+  const maxScore    = mcq.length + coding.length * CODING_WEIGHT;
   const pct        = Math.round((totalScore / maxScore) * 100);
   const grade      = pct >= 90 ? "A" : pct >= 75 ? "B" : pct >= 60 ? "C" : pct >= 45 ? "D" : "F";
   const gradeColor = { A: "#22c55e", B: "#84cc16", C: "#eab308", D: "#f97316", F: "#ef4444" }[grade];
@@ -45,7 +46,7 @@ export default function Results({ studentName, questions, answers, screenshots =
 
     const messageBody =
       `Score: ${totalScore}/${maxScore} (${pct}%) — Grade ${grade}\n` +
-      `MCQ: ${mcqScore}/${mcq.length}   Coding: ${codingScore}/${coding.length}\n` +
+      `MCQ: ${mcqScore}/${mcq.length}   Coding: ${codingScore}/${coding.length * CODING_WEIGHT} (${CODING_WEIGHT}pts each)\n` +
       `Tab/window switches: ${tabSwitches} time${tabSwitches !== 1 ? "s" : ""}\n\n` +
       buildBreakdown() +
       screenshotLinks;
@@ -99,7 +100,7 @@ export default function Results({ studentName, questions, answers, screenshots =
             <span className="results-stat-label">MCQ</span>
           </div>
           <div className="results-stat">
-            <span className="results-stat-value">{codingScore}<small>/{coding.length}</small></span>
+            <span className="results-stat-value">{codingScore}<small>/{coding.length * CODING_WEIGHT}</small></span>
             <span className="results-stat-label">Coding</span>
           </div>
           <div className="results-stat">
