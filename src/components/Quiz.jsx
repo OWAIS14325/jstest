@@ -156,19 +156,6 @@ export default function Quiz({
         &nbsp;·&nbsp; {answeredMCQ}/{mcq.length} MCQ answered
       </p>
 
-      {/* Screen monitoring permission banner */}
-      {supportsDisplay && screenPerm === "idle" && (
-        <div className="screen-perm-banner">
-          <span>Screen monitoring is required for this quiz.</span>
-          <button className="btn-perm" onClick={requestScreenPerm}>Enable Screen Monitoring</button>
-        </div>
-      )}
-      {supportsDisplay && screenPerm === "denied" && (
-        <div className="screen-perm-banner screen-perm-banner--denied">
-          <span>Screen monitoring was denied. Activity will still be logged.</span>
-          <button className="btn-perm" onClick={requestScreenPerm}>Try Again</button>
-        </div>
-      )}
 
       {/* Question */}
       <div className="quiz-body">
@@ -208,6 +195,30 @@ export default function Quiz({
           </button>
         )}
       </div>
+
+      {/* Screen sharing mandatory gate */}
+      {supportsDisplay && screenPerm !== "granted" && (
+        <div className="modal-overlay" style={{ zIndex: 200 }}>
+          <div className="modal">
+            <div className="modal-icon">🖥️</div>
+            <h2>Screen Monitoring Required</h2>
+            <p>
+              You must share your <strong>entire screen</strong> before starting the quiz.
+              This is required for academic integrity monitoring.
+            </p>
+            {screenPerm === "denied" && (
+              <p style={{ color: "var(--red)", marginBottom: "1rem", marginTop: "-0.75rem" }}>
+                Permission was denied. Please try again.
+              </p>
+            )}
+            <div className="modal-actions">
+              <button className="btn-primary" onClick={requestScreenPerm}>
+                Share Screen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Submit confirmation modal */}
       {showSubmitConfirm && (
