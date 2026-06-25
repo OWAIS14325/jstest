@@ -457,6 +457,31 @@ body { min-height: 100vh; }
 .modal p { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.6; }
 .modal-actions { display: flex; gap: 0.75rem; justify-content: center; }
 
+/* ── Tab-switch warning banner ───────────────────────────────────────────── */
+.tab-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.4);
+  border-left: 4px solid var(--red);
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 0.75rem 1rem;
+  animation: slideDown 0.25s ease;
+}
+.tab-warning-icon { font-size: 1.1rem; flex-shrink: 0; }
+.tab-warning span:nth-child(2) { flex: 1; }
+.tab-warning-close {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 0.9rem; padding: 0 0.25rem; flex-shrink: 0;
+}
+.tab-warning-close:hover { color: var(--text); }
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 500px) {
   .q-card { padding: 1.25rem; }

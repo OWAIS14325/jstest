@@ -5,7 +5,6 @@ import Results from "./components/Results";
 import { MCQ_POOL, CODING_POOL } from "./data/questions";
 import { pickQuestionsForStudent } from "./utils/randomize";
 import { loadState, saveState, clearState } from "./utils/storage";
-import { generateScreenshotTimes } from "./utils/timer";
 
 function makeSubmitHandler(submitFn, saveFn) {
   submitFn.saveProgress = saveFn;
@@ -40,8 +39,8 @@ export default function App() {
       questions,
       answers: initialAnswers,
       startTime: Date.now(),
-      screenshotTimes: generateScreenshotTimes(5),
       screenshots: [],
+      tabSwitches: 0,
       submitted: false,
     });
   };
@@ -52,6 +51,10 @@ export default function App() {
 
   const handleScreenshot = (url) => {
     setAppState((prev) => ({ ...prev, screenshots: [...(prev.screenshots ?? []), url] }));
+  };
+
+  const handleTabSwitch = (count) => {
+    setAppState((prev) => ({ ...prev, tabSwitches: count }));
   };
 
   const handleSubmit = (finalAnswers) => {
@@ -76,8 +79,8 @@ export default function App() {
         questions={appState.questions}
         savedAnswers={appState.answers}
         startTime={appState.startTime}
-        screenshotTimes={appState.screenshotTimes ?? []}
         onScreenshot={handleScreenshot}
+        onTabSwitch={handleTabSwitch}
         onSubmit={submitHandler}
         onReset={handleReset}
       />
@@ -91,6 +94,7 @@ export default function App() {
         questions={appState.questions}
         answers={appState.answers}
         screenshots={appState.screenshots ?? []}
+        tabSwitches={appState.tabSwitches ?? 0}
       />
     );
   }

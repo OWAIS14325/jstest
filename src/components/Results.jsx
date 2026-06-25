@@ -7,7 +7,7 @@ const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
 const EMAILJS_PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 const emailjsConfigured = EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY;
 
-export default function Results({ studentName, questions, answers, screenshots = [] }) {
+export default function Results({ studentName, questions, answers, screenshots = [], tabSwitches = 0 }) {
   const { mcq, coding } = questions;
   const { mcq: mcqAnswers, coding: codingAnswers } = answers;
 
@@ -45,7 +45,8 @@ export default function Results({ studentName, questions, answers, screenshots =
 
     const messageBody =
       `Score: ${totalScore}/${maxScore} (${pct}%) — Grade ${grade}\n` +
-      `MCQ: ${mcqScore}/${mcq.length}   Coding: ${codingScore}/${coding.length}\n\n` +
+      `MCQ: ${mcqScore}/${mcq.length}   Coding: ${codingScore}/${coding.length}\n` +
+      `Tab/window switches: ${tabSwitches} time${tabSwitches !== 1 ? "s" : ""}\n\n` +
       buildBreakdown() +
       screenshotLinks;
 

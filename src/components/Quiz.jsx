@@ -6,7 +6,7 @@ import { captureScreen } from "../utils/screenshots";
 
 export default function Quiz({
   studentName, questions, savedAnswers,
-  startTime, screenshotTimes, onScreenshot,
+  startTime, onScreenshot, onTabSwitch,
   onSubmit, onReset,
 }) {
   const { mcq, coding } = questions;
@@ -20,6 +20,9 @@ export default function Quiz({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [remaining, setRemaining] = useState(() => getRemainingMs(startTime));
+  const [tabWarning, setTabWarning] = useState(false);
+  const tabSwitchCountRef = useRef(0);
+  const lastCaptureRef = useRef(0);
 
   const isLastStep = step === total - 1;
   const isMCQStep = step < mcq.length;
@@ -42,41 +45,32 @@ export default function Quiz({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startTime, mcqAnswers, codingAnswers]);
 
-  // ── Screenshot scheduler (random times) ───────────────────────────────
+  // ── Tab / window switch: warn + screenshot ────────────────────────────
   useEffect(() => {
-    if (!screenshotTimes?.length) return;
-    const elapsed = Date.now() - startTime;
-    const ids = screenshotTimes.map((targetMs) => {
-      const delay = Math.max(800, targetMs - elapsed);
-      return setTimeout(async () => {
-        const url = await captureScreen();
-        if (url) onScreenshot(url);
-      }, delay);
-    });
-    return () => ids.forEach(clearTimeout);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const handleSwitch = async () => {
+      // deduplicate: visibilitychange + blur can both fire; ignore within 2s
+      const now = Date.now();
+      if (now - lastCaptureRef.current < 2000) return;
+      lastCaptureRef.current = now;
 
-  // ── Screenshot on tab-switch / window blur ─────────────────────────────
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (document.hidden) {
-        // brief delay so the browser finishes the transition before capture
-        await new Promise((r) => setTimeout(r, 300));
-        const url = await captureScreen();
-        if (url) onScreenshot(url);
-      }
-    };
-    const handleBlur = async () => {
-      await new Promise((r) => setTimeout(r, 300));
+      tabSwitchCountRef.current += 1;
+      onTabSwitch(tabSwitchCountRef.current);
+
+      setTabWarning(true);
+      setTimeout(() => setTabWarning(false), 5000);
+
       const url = await captureScreen();
       if (url) onScreenshot(url);
     };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", handleBlur);
+
+    const onVisibility = () => { if (document.hidden) handleSwitch(); };
+    const onBlur       = () => handleSwitch();
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", onBlur);
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleBlur);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", onBlur);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -145,6 +139,17 @@ export default function Quiz({
         {isMCQStep ? `MCQ ${step + 1} of ${mcq.length}` : `Coding ${codingIndex + 1} of ${coding.length}`}
         &nbsp;·&nbsp; {answeredMCQ}/{mcq.length} MCQ answered
       </p>
+
+      {/* Tab-switch warning banner */}
+      {tabWarning && (
+        <div className="tab-warning">
+          <span className="tab-warning-icon">⚠️</span>
+          <span>
+            You switched tabs or windows. This has been <strong>recorded</strong> and will be reported to the instructor.
+          </span>
+          <button className="tab-warning-close" onClick={() => setTabWarning(false)}>✕</button>
+        </div>
+      )}
 
       {/* Question */}
       <div className="quiz-body">
