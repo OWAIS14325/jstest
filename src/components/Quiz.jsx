@@ -20,9 +20,25 @@ export default function Quiz({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [remaining, setRemaining] = useState(() => getRemainingMs(startTime));
-  const [tabWarning, setTabWarning] = useState(false);
+  const [screenPerm, setScreenPerm] = useState("idle"); // idle | granted | denied
   const tabSwitchCountRef = useRef(0);
-  const lastCaptureRef = useRef(0);
+  const lastCaptureRef    = useRef(0);
+  const screenStreamRef   = useRef(null);
+  const supportsDisplay   = !!navigator.mediaDevices?.getDisplayMedia;
+
+  const requestScreenPerm = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "always" }, audio: false });
+      screenStreamRef.current = stream;
+      setScreenPerm("granted");
+      stream.getVideoTracks()[0].addEventListener("ended", () => {
+        screenStreamRef.current = null;
+        setScreenPerm("idle");
+      });
+    } catch {
+      setScreenPerm("denied");
+    }
+  };
 
   const isLastStep = step === total - 1;
   const isMCQStep = step < mcq.length;
@@ -56,10 +72,9 @@ export default function Quiz({
       tabSwitchCountRef.current += 1;
       onTabSwitch(tabSwitchCountRef.current);
 
-      setTabWarning(true);
-      setTimeout(() => setTabWarning(false), 5000);
-
-      const url = await captureScreen();
+      // wait for the other app to fully render before grabbing the frame
+      await new Promise((r) => setTimeout(r, 600));
+      const url = await captureScreen(screenStreamRef.current);
       if (url) onScreenshot(url);
     };
 
@@ -71,6 +86,7 @@ export default function Quiz({
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("blur", onBlur);
+      screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -140,14 +156,17 @@ export default function Quiz({
         &nbsp;·&nbsp; {answeredMCQ}/{mcq.length} MCQ answered
       </p>
 
-      {/* Tab-switch warning banner */}
-      {tabWarning && (
-        <div className="tab-warning">
-          <span className="tab-warning-icon">⚠️</span>
-          <span>
-            You switched tabs or windows. This has been <strong>recorded</strong> and will be reported to the instructor.
-          </span>
-          <button className="tab-warning-close" onClick={() => setTabWarning(false)}>✕</button>
+      {/* Screen monitoring permission banner */}
+      {supportsDisplay && screenPerm === "idle" && (
+        <div className="screen-perm-banner">
+          <span>Screen monitoring is required for this quiz.</span>
+          <button className="btn-perm" onClick={requestScreenPerm}>Enable Screen Monitoring</button>
+        </div>
+      )}
+      {supportsDisplay && screenPerm === "denied" && (
+        <div className="screen-perm-banner screen-perm-banner--denied">
+          <span>Screen monitoring was denied. Activity will still be logged.</span>
+          <button className="btn-perm" onClick={requestScreenPerm}>Try Again</button>
         </div>
       )}
 
