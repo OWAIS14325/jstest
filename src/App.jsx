@@ -5,6 +5,7 @@ import Results from "./components/Results";
 import { MCQ_POOL, CODING_POOL } from "./data/questions";
 import { pickQuestionsForStudent } from "./utils/randomize";
 import { loadState, saveState, clearState } from "./utils/storage";
+import { generateScreenshotTimes } from "./utils/timer";
 
 function makeSubmitHandler(submitFn, saveFn) {
   submitFn.saveProgress = saveFn;
@@ -33,11 +34,24 @@ export default function App() {
       coding: questions.coding.map((q) => ({ code: q.starterCode, passed: false })),
       step: 0,
     };
-    setAppState({ screen: "quiz", name, questions, answers: initialAnswers, submitted: false });
+    setAppState({
+      screen: "quiz",
+      name,
+      questions,
+      answers: initialAnswers,
+      startTime: Date.now(),
+      screenshotTimes: generateScreenshotTimes(5),
+      screenshots: [],
+      submitted: false,
+    });
   };
 
   const handleProgress = (progressAnswers) => {
     setAppState((prev) => ({ ...prev, answers: { ...prev.answers, ...progressAnswers } }));
+  };
+
+  const handleScreenshot = (url) => {
+    setAppState((prev) => ({ ...prev, screenshots: [...(prev.screenshots ?? []), url] }));
   };
 
   const handleSubmit = (finalAnswers) => {
@@ -61,6 +75,9 @@ export default function App() {
         studentName={appState.name}
         questions={appState.questions}
         savedAnswers={appState.answers}
+        startTime={appState.startTime}
+        screenshotTimes={appState.screenshotTimes ?? []}
+        onScreenshot={handleScreenshot}
         onSubmit={submitHandler}
         onReset={handleReset}
       />
@@ -73,7 +90,7 @@ export default function App() {
         studentName={appState.name}
         questions={appState.questions}
         answers={appState.answers}
-        onReset={handleReset}
+        screenshots={appState.screenshots ?? []}
       />
     );
   }

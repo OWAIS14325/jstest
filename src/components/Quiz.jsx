@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import MCQQuestion from "./MCQQuestion";
 import CodingQuestion from "./CodingQuestion";
+import { getRemainingMs, formatTime } from "../utils/timer";
+import { captureScreen } from "../utils/screenshots";
 
-export default function Quiz({ studentName, questions, savedAnswers, onSubmit, onReset }) {
+export default function Quiz({
+  studentName, questions, savedAnswers,
+  startTime, screenshotTimes, onScreenshot,
+  onSubmit, onReset,
+}) {
   const { mcq, coding } = questions;
   const total = mcq.length + coding.length;
 
@@ -10,16 +16,48 @@ export default function Quiz({ studentName, questions, savedAnswers, onSubmit, o
   const [codingAnswers, setCodingAnswers] = useState(
     savedAnswers?.coding ?? coding.map((q) => ({ code: q.starterCode, passed: false }))
   );
-  const [step, setStep] = useState(savedAnswers?.step ?? 0); // 0..9 = MCQ, 10..11 = coding
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [step, setStep] = useState(savedAnswers?.step ?? 0);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [remaining, setRemaining] = useState(() => getRemainingMs(startTime));
 
   const isLastStep = step === total - 1;
   const isMCQStep = step < mcq.length;
   const codingIndex = step - mcq.length;
-
   const answeredMCQ = mcqAnswers.filter((a) => a !== null).length;
-  const answeredCoding = codingAnswers.filter((a) => a.code !== coding[0]?.starterCode || a.passed).length;
 
+  // ── Countdown timer ────────────────────────────────────────────────────
+  const autoSubmitRef = useRef(false);
+  useEffect(() => {
+    const tick = setInterval(() => {
+      const left = getRemainingMs(startTime);
+      setRemaining(left);
+      if (left === 0 && !autoSubmitRef.current) {
+        autoSubmitRef.current = true;
+        clearInterval(tick);
+        onSubmit({ mcq: mcqAnswers, coding: codingAnswers });
+      }
+    }, 1000);
+    return () => clearInterval(tick);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startTime, mcqAnswers, codingAnswers]);
+
+  // ── Screenshot scheduler ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!screenshotTimes?.length) return;
+    const elapsed = Date.now() - startTime;
+    const ids = screenshotTimes.map((targetMs) => {
+      const delay = Math.max(800, targetMs - elapsed);
+      return setTimeout(async () => {
+        const url = await captureScreen();
+        if (url) onScreenshot(url);
+      }, delay);
+    });
+    return () => ids.forEach(clearTimeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Progress persistence ───────────────────────────────────────────────
   const onSave = (state) => {
     if (typeof onSubmit.saveProgress === "function") onSubmit.saveProgress(state);
   };
@@ -50,11 +88,14 @@ export default function Quiz({ studentName, questions, savedAnswers, onSubmit, o
     onSave({ mcq: mcqAnswers, coding: codingAnswers, step: nextStep });
   };
 
-  const handleSubmit = () => {
+  const handleSubmitConfirmed = () => {
+    setShowSubmitConfirm(false);
     onSubmit({ mcq: mcqAnswers, coding: codingAnswers });
   };
 
   const progressPct = Math.round(((step + 1) / total) * 100);
+  const isLow = remaining < 5 * 60 * 1000;   // < 5 min — go red
+  const isCritical = remaining < 60 * 1000;   // < 1 min — pulse
 
   return (
     <div className="quiz-wrapper">
@@ -64,10 +105,15 @@ export default function Quiz({ studentName, questions, savedAnswers, onSubmit, o
           <span className="quiz-logo">JS</span>
           <span className="quiz-name">{studentName}</span>
         </div>
-        <button className="btn-reset" onClick={() => setShowConfirm(true)}>Reset</button>
+        <div className="quiz-header-right">
+          <span className={`timer ${isLow ? "timer--low" : ""} ${isCritical ? "timer--critical" : ""}`}>
+            {formatTime(remaining)}
+          </span>
+          <button className="btn-reset" onClick={() => setShowResetConfirm(true)}>Reset</button>
+        </div>
       </header>
 
-      {/* Progress */}
+      {/* Progress bar */}
       <div className="progress-bar-track">
         <div className="progress-bar-fill" style={{ width: `${progressPct}%` }} />
       </div>
@@ -101,7 +147,9 @@ export default function Quiz({ studentName, questions, savedAnswers, onSubmit, o
       <div className="quiz-nav">
         <button className="btn-secondary" onClick={goPrev} disabled={step === 0}>← Back</button>
         {isLastStep ? (
-          <button className="btn-primary" onClick={handleSubmit}>Submit Quiz</button>
+          <button className="btn-primary" onClick={() => setShowSubmitConfirm(true)}>
+            Submit Quiz
+          </button>
         ) : (
           <button
             className="btn-primary"
@@ -113,14 +161,37 @@ export default function Quiz({ studentName, questions, savedAnswers, onSubmit, o
         )}
       </div>
 
-      {/* Reset confirmation modal */}
-      {showConfirm && (
+      {/* Submit confirmation modal */}
+      {showSubmitConfirm && (
         <div className="modal-overlay">
           <div className="modal">
-            <h2>Reset Quiz?</h2>
-            <p>This will clear all your answers and start fresh. This cannot be undone.</p>
+            <div className="modal-icon">📝</div>
+            <h2>Submit Quiz?</h2>
+            <p>
+              You have answered <strong>{answeredMCQ} of {mcq.length}</strong> MCQ questions.
+              Once submitted you cannot change your answers.
+            </p>
             <div className="modal-actions">
-              <button className="btn-secondary" onClick={() => setShowConfirm(false)}>Cancel</button>
+              <button className="btn-secondary" onClick={() => setShowSubmitConfirm(false)}>
+                Go Back
+              </button>
+              <button className="btn-primary" onClick={handleSubmitConfirmed}>
+                Yes, Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset confirmation modal */}
+      {showResetConfirm && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-icon">⚠️</div>
+            <h2>Reset Quiz?</h2>
+            <p>This will erase all your answers and restart from scratch. This cannot be undone.</p>
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowResetConfirm(false)}>Cancel</button>
               <button className="btn-danger" onClick={onReset}>Yes, Reset</button>
             </div>
           </div>
