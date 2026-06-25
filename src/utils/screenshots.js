@@ -1,7 +1,4 @@
-// Cloudinary unsigned upload — free forever, no API key needed in code.
-// Only requires VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_PRESET env vars.
-const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const PRESET     = import.meta.env.VITE_CLOUDINARY_PRESET;
+const API_KEY = import.meta.env.VITE_IMGBB_API_KEY;
 
 export async function captureScreen() {
   try {
@@ -12,20 +9,20 @@ export async function captureScreen() {
       logging: false,
       imageTimeout: 0,
     });
-    const base64 = canvas.toDataURL("image/jpeg", 0.4);
+    // strip the "data:image/jpeg;base64," prefix — ImgBB wants raw base64
+    const base64 = canvas.toDataURL("image/jpeg", 0.4).split(",")[1];
 
-    if (!CLOUD_NAME || !PRESET) return null;
+    if (!API_KEY) return null;
 
     const fd = new FormData();
-    fd.append("file", base64);
-    fd.append("upload_preset", PRESET);
+    fd.append("image", base64);
 
-    const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+    const res  = await fetch(`https://api.imgbb.com/1/upload?key=${API_KEY}`, {
       method: "POST",
       body: fd,
     });
     const json = await res.json();
-    return json?.secure_url ?? null;
+    return json?.data?.url ?? null;
   } catch {
     return null;
   }

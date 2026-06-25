@@ -42,7 +42,7 @@ export default function Quiz({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startTime, mcqAnswers, codingAnswers]);
 
-  // ── Screenshot scheduler ───────────────────────────────────────────────
+  // ── Screenshot scheduler (random times) ───────────────────────────────
   useEffect(() => {
     if (!screenshotTimes?.length) return;
     const elapsed = Date.now() - startTime;
@@ -54,6 +54,30 @@ export default function Quiz({
       }, delay);
     });
     return () => ids.forEach(clearTimeout);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Screenshot on tab-switch / window blur ─────────────────────────────
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.hidden) {
+        // brief delay so the browser finishes the transition before capture
+        await new Promise((r) => setTimeout(r, 300));
+        const url = await captureScreen();
+        if (url) onScreenshot(url);
+      }
+    };
+    const handleBlur = async () => {
+      await new Promise((r) => setTimeout(r, 300));
+      const url = await captureScreen();
+      if (url) onScreenshot(url);
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
